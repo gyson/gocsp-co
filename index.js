@@ -15,18 +15,28 @@ function co(genFun) {
 }
 exports.co = co
 
+// function async(genFun) {
+//     if (!isGenFun(genFun)) {
+//         throw new TypeError(genFun + ' is not generator function')
+//     }
+//     return function () {
+//         return new Promise(coroutine(genFun.apply(this, arguments)))
+//     }
+// }
+// exports.async = async
+
 function spawn(gen) {
     if (isGenFun(gen)) {
-        gen = gen()
-    } else {
-        if (!isGenerator(gen)) {
-            throw new TypeError(gen + ' is not generator or generator function')
-        }
+        return coroutine(gen())
     }
-    return coroutine(gen)
+    if (isGenerator(gen)) {
+        return coroutine(gen)
+    }
+    throw new TypeError(gen + ' is not generator or generator function')
 }
 exports.spawn = spawn
 
+// internal
 function coroutine(gen) {
     return thunk(function (cb) {
         next()
@@ -62,10 +72,15 @@ function coroutine(gen) {
                 if (thunk.isThunk(value)) {
                     value(next)
                 } else {
+                    // need to support this ?
                     // wrap it as thunk if it's callback for safety
                     // e.g. yield cb => fs.readFile(..., cb)
                     // e.g. yield cb => { throw new Error() }
-                    thunk(value)(next)
+                    try {
+                        thunk(value)(next)
+                    } catch (e) {
+                        next(e)
+                    }
                 }
                 return
             }
@@ -78,7 +93,9 @@ function coroutine(gen) {
 function isGenFun(obj) {
     return obj && obj.constructor && obj.constructor.name === 'GeneratorFunction'
 }
+exports.isGenFun = exports.isGeneratorFunction = isGenFun
 
 function isGenerator(obj) {
     return Object.prototype.toString.call(obj) === '[object Generator]'
 }
+exports.isGenerator = isGenerator
