@@ -59,33 +59,30 @@ function coroutine(gen) {
                 return
             }
 
-            // it's promise
-            if (value && typeof value.then === 'function') {
-                value.then(function (val) {
-                    next(null, val)
-                }, next)
-                return
-            }
-
-            // it's thunk or callback
-            if (typeof value === 'function') {
-                if (thunk.isThunk(value)) {
-                    value(next)
-                } else {
-                    // need to support this ?
-                    // wrap it as thunk if it's callback for safety
-                    // e.g. yield cb => fs.readFile(..., cb)
-                    // e.g. yield cb => { throw new Error() }
-                    try {
-                        thunk(value)(next)
-                    } catch (e) {
-                        next(e)
-                    }
+            try {
+                // it's promise
+                if (value && typeof value.then === 'function') {
+                    value.then(function (val) {
+                        next(null, val)
+                    }, next)
+                    return
                 }
-                return
+                // it's thunk or callback
+                if (typeof value === 'function') {
+                    if (!thunk.isThunk(value)) {
+                        // need to support this ?
+                        // wrap it as thunk if it's callback for safety
+                        // e.g. yield cb => fs.readFile(..., cb)
+                        // e.g. yield cb => { throw new Error() }
+                        value = thunk(value)
+                    }
+                    value(next)
+                    return
+                }
+                throw new TypeError('Invalid type to yield')
+            } catch (e) {
+                next(e)
             }
-
-            throw new TypeError('Invalid type to yield')
         }
     })
 }
