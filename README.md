@@ -7,11 +7,25 @@ Coroutine in js world
 
 ```js
 var co = require('gocsp-co')
+var thunk = require('gocsp-thunk')
+
 co(function* (x, y) {
 
-    yield thunk
+    // yield promise
+    yield new Promise((resolve, reject) => {
+        resolve('hi')
+    })
 
-    yield promise
+    // yield thunk
+    yield thunk(done => {
+        done()
+    })
+
+    // yield callback
+    // it's a sugar for yield thunk
+    yield done => {
+        done()
+    }
 
     return x + y
 
