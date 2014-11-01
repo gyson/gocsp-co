@@ -3,6 +3,7 @@
 
 module.exports = exports = co
 
+var all = require('gocsp-all')
 var thunk = require('gocsp-thunk')
 
 function co(genFun) {
@@ -26,8 +27,9 @@ exports.co = co
 // exports.async = async
 
 function spawn(gen) {
-    if (isGenFun(gen)) {
-        return coroutine(gen())
+    // in case it's function* () {}.bind(ctx)
+    if (typeof gen === 'function') {
+        gen = gen()
     }
     if (isGenerator(gen)) {
         return coroutine(gen)
@@ -79,7 +81,15 @@ function coroutine(gen) {
                     value(next)
                     return
                 }
-                throw new TypeError('Invalid type to yield')
+                // it's array of thunks or promises
+                if (Array.isArray(value)) {
+                    all(value)(next)
+                    return
+                }
+                if (isGenerator(value)) {
+                    throw new TypeError('Please use `yield* generator`')
+                }
+                throw new TypeError(value + ' is not promise, thunk or array')
             } catch (e) {
                 next(e)
             }
