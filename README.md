@@ -77,6 +77,29 @@ co.spawn(function* () {
     assert(val === 3)
 })
 ```
+---
+### `co.limit( num, generator_function )`
+
+Example:
+```js
+co.spawn(function* () {
+    // read max 10 files at the same time
+    var read = co.limit(10, function* (filename) {
+        return yield thunk.ify(fs.readFile)(filename)
+    })
+    var files = yield ['file1', 'file2', 'etc...'].map(read)
+})
+
+// gocsp-each
+each(chan, co.limit(10, function* (data) {
+    // ...
+}))
+
+// limit total number of connection
+http.createServer(co.limit(1000, function* (req, res) {
+    // ...
+}))
+```
 
 ## Inspiration
 

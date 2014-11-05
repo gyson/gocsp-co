@@ -5,6 +5,7 @@ module.exports = exports = co
 
 var all = require('gocsp-all')
 var thunk = require('gocsp-thunk')
+var LinkList = require('link-list')
 
 function co(genFun) {
     if (!isGenFun(genFun)) {
@@ -37,6 +38,45 @@ function spawn(gen) {
     throw new TypeError(gen + ' is not generator or generator function')
 }
 exports.spawn = spawn
+
+function limit(max, genFun) {
+    if (max !== (~~max) || max <= 0) {
+        throw new TypeError(max + ' is not positive integer')
+    }
+    if (!isGenFun(genFun)) {
+        throw new TypeError(genFun + ' is not generator function')
+    }
+
+    var count = 0
+    var list = new LinkList()
+
+    function check() {
+        if (list.isEmpty()) { return }
+
+        if (count < max) {
+            var obj = list.shift()
+            count += 1
+            coroutine(obj.gen)(function () {
+                count -= 1
+                obj.done.apply(this, arguments)
+                check()
+            })
+        }
+    }
+
+    // max has to be positive integer
+    return function () {
+        var gen = genFun.apply(this, arguments)
+        return thunk(function (done) {
+            list.push({
+                gen: gen,
+                done: done
+            })
+            check()
+        })
+    }
+}
+exports.limit = limit
 
 // internal
 function coroutine(gen) {
