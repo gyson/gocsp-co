@@ -17,15 +17,18 @@ function co(genFun) {
 }
 exports.co = co
 
-// function async(genFun) {
-//     if (!isGenFun(genFun)) {
-//         throw new TypeError(genFun + ' is not generator function')
-//     }
-//     return function () {
-//         return new Promise(coroutine(genFun.apply(this, arguments)))
-//     }
-// }
-// exports.async = async
+function async(genFun) {
+    if (!Promise) {
+        throw new Error('Cannot find Promise')
+    }
+    if (!isGenFun(genFun)) {
+        throw new TypeError(genFun + ' is not generator function')
+    }
+    return function () {
+        return new Promise(coroutine(genFun.apply(this, arguments)))
+    }
+}
+exports.async = async
 
 function spawn(gen) {
     // in case it's function* () {}.bind(ctx)
@@ -51,20 +54,17 @@ function limit(max, genFun) {
     var list = new LinkList()
 
     function check() {
-        if (list.isEmpty()) { return }
-
-        if (count < max) {
-            var obj = list.shift()
+        while (!list.isEmpty() && count < max) {
+            var task = list.shift()
             count += 1
-            coroutine(obj.gen)(function () {
+            coroutine(task.gen)(function () {
                 count -= 1
-                obj.done.apply(this, arguments)
+                task.done.apply(this, arguments)
                 check()
             })
         }
     }
 
-    // max has to be positive integer
     return function () {
         var gen = genFun.apply(this, arguments)
         return thunk(function (done) {
@@ -126,8 +126,17 @@ function coroutine(gen) {
                     all(value)(next)
                     return
                 }
+                // is integer, sleep for a while
+                // it makes testing a little bit easier
+                if (value === ~~value) {
+                    setTimeout(next, value)
+                    return
+                }
+                // it's recommanded to use `yield* generator`
                 if (isGenerator(value)) {
-                    throw new TypeError('Please use `yield* generator`')
+                    // coroutine(value)(next)
+                    // return
+                    throw new TypeError('Plean use `yield* generator`')
                 }
                 throw new TypeError(value + ' is not promise, thunk or array')
             } catch (e) {
