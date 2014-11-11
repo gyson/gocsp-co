@@ -1,6 +1,6 @@
 {
   "name": "gocsp-co",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,7 @@
     "es6-promise": "^2.0.0"
   },
   "dependencies": {
-    "gocsp-thunk": "0.0.1",
+    "gocsp-thunk": "0.0.2",
     "link-list": "0.0.4"
   }
 }
