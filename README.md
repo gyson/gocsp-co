@@ -22,7 +22,6 @@ co(function* (x, y) {
     })
 
     // yield callback
-    // it's a sugar for yield thunk
     yield done => {
         done()
     }
@@ -37,10 +36,21 @@ co(function* (x, y) {
 
 ## Difference with TJ's co
 
-* You can only yield thunk or promise with gocsp-co.
-* Use [gocsp-all](https://github.com/gyson/gocsp-all) to get result from an array of thunks or promises.
-* Use `yield* generator` to do delegation.
-* gocsp-co will return a wrapper function which will return a thunk when called, where tj's co use last argument as callback (it's also a thunk if no other arguments).
+`co()` in gocsp-co will return a wrapper function which will return a thunk when called, where tj's co use last argument as callback (it's also a thunk if no other arguments).
+
+## Async Function
+
+Use it as ES7 async function.
+
+Example:
+```js
+function asyncFunction(arg0, arg1, arg2) {
+    return new Promise(co.spawn(function* () {
+        // ...
+        // ...
+    }))
+}
+```
 
 ## API Reference
 ### `co( generator_function )`
@@ -56,7 +66,7 @@ co(function* (x, y) {
 })
 ```
 ---
-### `co.spawn( generator / generator_function )`
+### `co.spawn( generator_function / generator )`
 
 Return a [thunk](https://github.com/gyson/gocsp-thunk). If argument is generator function, it will be called (e.g. `genFun()`) and returned generator will be used for coroutine.
 
