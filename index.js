@@ -3,7 +3,6 @@
 
 module.exports = exports = co
 
-var all = require('gocsp-all')
 var thunk = require('gocsp-thunk')
 var LinkList = require('link-list')
 
@@ -18,6 +17,7 @@ function co(genFun) {
 exports.co = co
 
 function async(genFun) {
+    // only support native Promise or polyfill
     if (!Promise) {
         throw new Error('Cannot find Promise')
     }
@@ -78,69 +78,123 @@ function limit(max, genFun) {
 }
 exports.limit = limit
 
+function parallel(list) {
+    if (!isObjectOrArray(list)) {
+        throw new TypeError(list + ' is not array or plain object')
+    }
+    return thunk(function (done) {
+        var result
+        if (Array.isArray(list)) {
+            result = new Array(list.length)
+        } else {
+            result = {}
+        }
+        var keys = Object.keys(list)
+        var length = keys.length
+        if (length === 0) {
+            done(null, result)
+            return
+        }
+        keys.forEach(function (key) {
+            if (result === null) { return }
+            yieldable(list[key], function (err, val) {
+                if (result === null) { return }
+                if (err) {
+                    result = null
+                    done(err)
+                    return
+                }
+                result[key] = val
+                length -= 1
+                if (length === 0) {
+                    done(null, result)
+                }
+            })
+        })
+    })
+}
+exports.parallel = exports.all = parallel
+
+function sleep(time) {
+    return thunk(function (done) {
+        setTimeout(done, time)
+    })
+}
+exports.sleep = sleep
+
+// internal
+function yieldable(value, _next) {
+    var called = false
+    function next() {
+        if (called) { return }
+        called = true
+        _next.apply(this, arguments)
+    }
+    try {
+        // gocsp-thunk
+        // check it first because thunk may have `.then` in the future
+        if (thunk.isThunk(value)) {
+            value(next)
+            return
+        }
+        // it's promise
+        if (value && typeof value.then === 'function') {
+            value.then(function (val) {
+                next(null, val)
+            }, next)
+            return
+        }
+        // generator function
+        if (isGenFun(value)) {
+            coroutine(value())(next)
+            return
+        }
+        // co-* lib or callback
+        if (typeof value === 'function') {
+            value(next)
+            return
+        }
+        // it's recommanded to use `yield* generator`
+        if (isGenerator(value)) {
+            coroutine(value)(next)
+            return
+        }
+        // parallel execution
+        if (isObjectOrArray(value)) {
+            parallel(value)(next)
+            return
+        }
+        next(new TypeError(value +
+            ' is not yieldable (thunk, promise, array, etc)'))
+    } catch (e) {
+        next(e)
+    }
+}
+
 // internal
 function coroutine(gen) {
-    return thunk(function (cb) {
+    return thunk(function (done) {
         next()
-        // ES6 tail call should be able to
-        // rescue deep recursive call if any
+        // ES6 tail call should be able to rescue deep recursive call if any
+        // Most of time, it should be fine because of async IO operation
         function next(err, res) {
             var ret, value
             try {
-                ret = err
-                    ? gen.throw(err)
-                    : gen.next(res)
+                ret = err ? gen.throw(err) : gen.next(res)
+                value = ret.value
             } catch (e) {
-                cb(e)
+                done(e)
                 return
             }
-            value = ret.value
-
             if (ret.done) {
-                cb(null, value)
+                done(null, value)
                 return
             }
-
-            try {
-                // it's promise
-                if (value && typeof value.then === 'function') {
-                    value.then(function (val) {
-                        next(null, val)
-                    }, next)
-                    return
-                }
-                // it's thunk or callback
-                if (typeof value === 'function') {
-                    if (!thunk.isThunk(value)) {
-                        // need to support this ?
-                        // wrap it as thunk if it's callback for safety
-                        // e.g. yield cb => fs.readFile(..., cb)
-                        // e.g. yield cb => { throw new Error() }
-                        value = thunk(value)
-                    }
-                    value(next)
-                    return
-                }
-                // it's array of thunks or promises
-                if (Array.isArray(value)) {
-                    all(value)(next)
-                    return
-                }
-                // is integer, sleep for a while
-                // it makes testing a little bit easier
-                if (value === ~~value) {
-                    setTimeout(next, value)
-                    return
-                }
-                // it's recommanded to use `yield* generator`
-                if (isGenerator(value)) {
-                    // coroutine(value)(next)
-                    // return
-                    throw new TypeError('Plean use `yield* generator`')
-                }
-                throw new TypeError(value + ' is not promise, thunk or array')
-            } catch (e) {
-                next(e)
+            // when yield a number, sleep for a while
+            if (value === +value) {
+                setTimeout(next, value)
+            } else {
+                yieldable(value, next)
             }
         }
     })
@@ -155,3 +209,7 @@ function isGenerator(obj) {
     return Object.prototype.toString.call(obj) === '[object Generator]'
 }
 exports.isGenerator = isGenerator
+
+function isObjectOrArray(obj) {
+    return obj && (Array.isArray(obj) || obj.constructor === Object)
+}
