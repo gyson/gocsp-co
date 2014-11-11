@@ -9,10 +9,10 @@
   "author": "gyson <eilian.yunsong@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "bluebird": "^2.3.10"
+    "bluebird": "^2.3.10",
+    "es6-promise": "^2.0.0"
   },
   "dependencies": {
-    "gocsp-all": "0.0.1",
     "gocsp-thunk": "0.0.1",
     "link-list": "0.0.4"
   }
