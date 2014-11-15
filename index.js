@@ -54,14 +54,15 @@ function limit(max, genFun) {
     var list = new LinkList()
 
     function check() {
-        while (!list.isEmpty() && count < max) {
-            var task = list.shift()
+        if (!list.isEmpty() && count < max) {
+            var task = list.shift() // let
             count += 1
             coroutine(task.gen)(function () {
                 count -= 1
                 task.done.apply(this, arguments)
                 check()
             })
+            check()
         }
     }
 
@@ -115,12 +116,16 @@ function parallel(list) {
 }
 exports.parallel = exports.all = parallel
 
-function sleep(time) {
+function timeout(time) {
+    var ref
     return thunk(function (done) {
-        setTimeout(done, time)
+        ref = setTimeout(done, time)
+    }, function cancelTimeout() {
+        clearTimeout(ref)
     })
 }
-exports.sleep = sleep
+exports.sleep = timeout
+exports.timeout = timeout
 
 // internal
 function yieldable(value, _next) {
